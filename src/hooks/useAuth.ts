@@ -1,13 +1,15 @@
+/* ------------------------------------------------------------------
+   src/hooks/useAuth.ts
+   – Cognito signup + OTP confirm + signin + signout in one hook
+-------------------------------------------------------------------*/
 import { useState, useEffect } from 'react';
-import { Amplify, Auth } from 'aws-amplify';       // v4 bundle
-import awsExports from '../aws-exports.js'; // ✅ Correct for JS file in TS project// 👈 add “.js”, path is one level up
+import { Amplify, Auth } from 'aws-amplify';
+import awsExports from '../aws-exports.js';
 import { User, AuthState } from '../types';
 
 Amplify.configure(awsExports);
 
-
-Amplify.configure(awsExports);                          // one-time init
-
+// map Cognito user → local shape
 const mapUser = (c: any): User => ({
   id: c.attributes.sub,
   email: c.attributes.email,
@@ -23,7 +25,9 @@ export const useAuth = () => {
     error: null,
   });
 
-  /* session on mount */
+  const [needsConfirm, setNeedsConfirm] = useState(false);
+
+  /* ─────────────────── 1. check existing session ─────────────────── */
   useEffect(() => {
     (async () => {
       try {
@@ -35,6 +39,43 @@ export const useAuth = () => {
     })();
   }, []);
 
+  /* ─────────────────── 2. sign-up (sends OTP) ────────────────────── */
+  const signUp = async (email: string, pwd: string, name: string) => {
+    set(s => ({ ...s, loading: true, error: null }));
+    try {
+      await Auth.signUp({ username: email, password: pwd, attributes: { email, name } });
+      setNeedsConfirm(true);                    // show OTP UI
+      set(s => ({ ...s, loading: false }));
+      return true;
+    } catch (e: any) {
+      set({ user: null, loading: false, error: e.message });
+      return false;
+    }
+  };
+
+  /* ─────────────────── 3. confirm OTP ────────────────────────────── */
+  const confirmSignUp = async (email: string, code: string) => {
+    set(s => ({ ...s, loading: true, error: null }));
+    try {
+      await Auth.confirmSignUp(email, code);
+      setNeedsConfirm(false);
+      return true;
+    } catch (e: any) {
+      set(s => ({ ...s, loading: false, error: e.message }));
+      return false;
+    }
+  };
+
+  /* ─────────────────── 4. resend OTP ─────────────────────────────── */
+  const resendCode = async (email: string) => {
+    try {
+      await Auth.resendSignUp(email);
+    } catch (e: any) {
+      set(s => ({ ...s, error: e.message }));
+    }
+  };
+
+  /* ─────────────────── 5. sign-in ─────────────────────────────────── */
   const signIn = async (email: string, pwd: string) => {
     set(s => ({ ...s, loading: true, error: null }));
     try {
@@ -43,27 +84,25 @@ export const useAuth = () => {
       set({ user: mapUser(u), loading: false, error: null });
       return true;
     } catch (e: any) {
+      if (e.code === 'UserNotConfirmedException') setNeedsConfirm(true);
       set({ user: null, loading: false, error: e.message });
       return false;
     }
   };
 
-  const signUp = async (email: string, pwd: string, name: string) => {
-    set(s => ({ ...s, loading: true, error: null }));
-    try {
-      await Auth.signUp({ username: email, password: pwd, attributes: { email, name } });
-      await signIn(email, pwd);                         // auto-login
-      return true;
-    } catch (e: any) {
-      set({ user: null, loading: false, error: e.message });
-      return false;
-    }
-  };
-
+  /* ─────────────────── 6. sign-out ───────────────────────────────── */
   const signOut = async () => {
     await Auth.signOut();
     set({ user: null, loading: false, error: null });
   };
 
-  return { ...state, signIn, signUp, signOut };
+  return {
+    ...state,
+    needsConfirm,
+    signUp,
+    confirmSignUp,
+    resendCode,
+    signIn,
+    signOut,
+  };
 };
