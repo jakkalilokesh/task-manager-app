@@ -1,40 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API, Auth } from 'aws-amplify';
 import { Task } from '../types';
 
 const apiName = 'tasksApi';
-const path = '/tasks';
+const path    = '/tasks';
 
 export const useTasks = (userId: string | null) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [tasks,  setTasks] = useState<Task[]>([]);
+  const [loading, setLoad] = useState(false);
+  const [error,   setErr ] = useState<string | null>(null);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     if (!userId) return;
-    setLoading(true);
+    setLoad(true);
     try {
-      const token = (await Auth.currentSession()).getAccessToken().getJwtToken();
-      const response = await API.get(apiName, path, {
-        headers: {
-          Authorization: token,
-        },
-        queryStringParameters: {
-          userId,
-        },
+      const jwt = (await Auth.currentSession()).getIdToken().getJwtToken();
+      const data = await API.get(apiName, path, {
+        headers: { Authorization: jwt },
+        queryStringParameters: { userId },
       });
-      setTasks(response);
-    } catch (err) {
-      console.error('Error fetching tasks:', err);
-      setError('Failed to load tasks');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
+      setTasks(data as Task[]);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally { setLoad(false); }
   }, [userId]);
+
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   return { tasks, loading, error };
 };

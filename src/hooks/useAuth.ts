@@ -1,18 +1,13 @@
-/* ------------------------------------------------------------------
-   src/hooks/useAuth.ts
--------------------------------------------------------------------*/
 import { useState, useEffect } from 'react';
-import { Amplify } from '@aws-amplify/core';      // ✅ Correct source for Amplify v5+
-import { Auth } from '@aws-amplify/auth';         // ✅ Correct source for Auth v5+
-import awsExports from '../aws-exports';          // ✅ This path is correct
+import { Amplify, Auth } from 'aws-amplify';       // v4 bundle
+import awsExports from '../aws-exports.js'; // ✅ Correct for JS file in TS project// 👈 add “.js”, path is one level up
 import { User, AuthState } from '../types';
 
 Amplify.configure(awsExports);
 
-// ✅ rest of your useAuth code remains the same
 
+Amplify.configure(awsExports);                          // one-time init
 
-// Convert Cognito user → local <User> shape
 const mapUser = (c: any): User => ({
   id: c.attributes.sub,
   email: c.attributes.email,
@@ -28,52 +23,43 @@ export const useAuth = () => {
     error: null,
   });
 
-  /* 1️⃣  Check existing session on app load */
+  /* session on mount */
   useEffect(() => {
     (async () => {
       try {
-        const cognitoUser = await Auth.currentAuthenticatedUser();
-        set({ user: mapUser(cognitoUser), loading: false, error: null });
+        const u = await Auth.currentAuthenticatedUser();
+        set({ user: mapUser(u), loading: false, error: null });
       } catch {
         set(s => ({ ...s, loading: false }));
       }
     })();
   }, []);
 
-  /* 2️⃣  Sign-in */
-  const signIn = async (email: string, password: string): Promise<boolean> => {
+  const signIn = async (email: string, pwd: string) => {
     set(s => ({ ...s, loading: true, error: null }));
     try {
-      await Auth.signIn(email, password);
+      await Auth.signIn(email, pwd);
       const u = await Auth.currentAuthenticatedUser();
       set({ user: mapUser(u), loading: false, error: null });
       return true;
-    } catch (err: any) {
-      set({ user: null, loading: false, error: err.message });
+    } catch (e: any) {
+      set({ user: null, loading: false, error: e.message });
       return false;
     }
   };
 
-  /* 3️⃣  Sign-up (auto-login after success) */
-  const signUp = async (email: string, password: string, name: string): Promise<boolean> => {
+  const signUp = async (email: string, pwd: string, name: string) => {
     set(s => ({ ...s, loading: true, error: null }));
     try {
-      await Auth.signUp({
-        username: email,
-        password,
-        attributes: { email, name },
-        autoSignIn: { enabled: true }, // skip email-verify in dev
-      });
-      const u = await Auth.currentAuthenticatedUser();
-      set({ user: mapUser(u), loading: false, error: null });
+      await Auth.signUp({ username: email, password: pwd, attributes: { email, name } });
+      await signIn(email, pwd);                         // auto-login
       return true;
-    } catch (err: any) {
-      set({ user: null, loading: false, error: err.message });
+    } catch (e: any) {
+      set({ user: null, loading: false, error: e.message });
       return false;
     }
   };
 
-  /* 4️⃣  Sign-out */
   const signOut = async () => {
     await Auth.signOut();
     set({ user: null, loading: false, error: null });
