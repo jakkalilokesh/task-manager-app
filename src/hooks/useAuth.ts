@@ -1,14 +1,16 @@
 /* ------------------------------------------------------------------
-   src/hooks/useAuth.ts      (REPLACE WHOLE FILE WITH THIS CONTENT)
+   src/hooks/useAuth.ts
 -------------------------------------------------------------------*/
+import { Amplify } from '@aws-amplify/core';
+import { Auth }    from '@aws-amplify/auth';
+import awsExports  from '../aws-exports';
+
 import { useState, useEffect } from 'react';
-import { Amplify, Auth } from 'aws-amplify';
-import awsExports from '../aws-exports';
 import { User, AuthState } from '../types';
 
-Amplify.configure(awsExports);           // ← one-time init
+Amplify.configure(awsExports); // one-time Amplify init
 
-// 🔐 Convert Cognito user → our User shape
+// Convert Cognito user → local <User> shape
 const mapUser = (c: any): User => ({
   id: c.attributes.sub,
   email: c.attributes.email,
@@ -24,9 +26,7 @@ export const useAuth = () => {
     error: null,
   });
 
-  /* --------------------------------------------------------------
-     1️⃣  Check for an existing Cognito session on app start
-  ----------------------------------------------------------------*/
+  /* 1️⃣  Check existing session on app load */
   useEffect(() => {
     (async () => {
       try {
@@ -38,9 +38,7 @@ export const useAuth = () => {
     })();
   }, []);
 
-  /* --------------------------------------------------------------
-     2️⃣  Sign-in with Cognito
-  ----------------------------------------------------------------*/
+  /* 2️⃣  Sign-in */
   const signIn = async (email: string, password: string): Promise<boolean> => {
     set(s => ({ ...s, loading: true, error: null }));
     try {
@@ -54,9 +52,7 @@ export const useAuth = () => {
     }
   };
 
-  /* --------------------------------------------------------------
-     3️⃣  Sign-up with Cognito (auto-login after success)
-  ----------------------------------------------------------------*/
+  /* 3️⃣  Sign-up (auto-login after success) */
   const signUp = async (email: string, password: string, name: string): Promise<boolean> => {
     set(s => ({ ...s, loading: true, error: null }));
     try {
@@ -64,7 +60,7 @@ export const useAuth = () => {
         username: email,
         password,
         attributes: { email, name },
-        autoSignIn: { enabled: true },   // skip confirm in dev; remove in prod
+        autoSignIn: { enabled: true }, // skip email-verify in dev
       });
       const u = await Auth.currentAuthenticatedUser();
       set({ user: mapUser(u), loading: false, error: null });
@@ -75,9 +71,7 @@ export const useAuth = () => {
     }
   };
 
-  /* --------------------------------------------------------------
-     4️⃣  Sign-out
-  ----------------------------------------------------------------*/
+  /* 4️⃣  Sign-out */
   const signOut = async () => {
     await Auth.signOut();
     set({ user: null, loading: false, error: null });
