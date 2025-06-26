@@ -1,13 +1,16 @@
 /* ------------------------------------------------------------------
    src/hooks/useAuth.ts
 -------------------------------------------------------------------*/
-import { Amplify, Auth } from 'aws-amplify';
-import awsExports  from '../aws-exports';
-
 import { useState, useEffect } from 'react';
+import { Amplify } from '@aws-amplify/core';      // ✅ Correct source for Amplify v5+
+import { Auth } from '@aws-amplify/auth';         // ✅ Correct source for Auth v5+
+import awsExports from '../aws-exports';          // ✅ This path is correct
 import { User, AuthState } from '../types';
 
-Amplify.configure(awsExports); // one-time Amplify init
+Amplify.configure(awsExports);
+
+// ✅ rest of your useAuth code remains the same
+
 
 // Convert Cognito user → local <User> shape
 const mapUser = (c: any): User => ({
