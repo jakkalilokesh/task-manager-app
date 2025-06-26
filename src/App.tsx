@@ -7,15 +7,14 @@ import { Dashboard } from './components/Dashboard';
 import { TaskList } from './components/TaskList';
 import { Account } from './components/Account';
 
-/** valid route names */
-type View = 'dashboard' | 'tasks' | 'account';
-
 function App() {
-  /* ──────────── Auth hook ──────────── */
+  /* ──────────────────────────────────────────────
+     1. AUTH HOOK
+  ─────────────────────────────────────────────── */
   const {
     user,
     loading: authLoading,
-    error: authError,
+    error:   authError,
     signIn,
     signUp,
     signOut,
@@ -24,19 +23,26 @@ function App() {
     resendCode,
   } = useAuth();
 
-  /* ──────────── Tasks hook ─────────── */
+  /* ──────────────────────────────────────────────
+     2. TASKS HOOK
+  ─────────────────────────────────────────────── */
   const {
     tasks,
     loading: tasksLoading,
-    error: tasksError,
+    error:   tasksError,
     createTask,
     updateTask,
     deleteTask,
   } = useTasks(user?.id ?? null);
 
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  /* ──────────────────────────────────────────────
+     3. LOCAL UI STATE
+  ─────────────────────────────────────────────── */
+  const [currentView, setCurrentView] = useState<'dashboard' | 'tasks' | 'account'>('dashboard');
 
-  /* ──────────── Splash while checking session ─────────── */
+  /* ──────────────────────────────────────────────
+     4. GLOBAL LOADING SPINNER
+  ─────────────────────────────────────────────── */
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -48,7 +54,9 @@ function App() {
     );
   }
 
-  /* ──────────── Auth / OTP screen ──────────── */
+  /* ──────────────────────────────────────────────
+     5. IF NOT AUTHENTICATED → SHOW <Auth>
+  ─────────────────────────────────────────────── */
   if (!user) {
     return (
       <Auth
@@ -63,11 +71,14 @@ function App() {
     );
   }
 
-  /* ──────────── View router ──────────── */
+  /* ──────────────────────────────────────────────
+     6. RENDER MAIN VIEWS
+  ─────────────────────────────────────────────── */
   const renderCurrentView = () => {
     switch (currentView) {
       case 'dashboard':
         return <Dashboard tasks={tasks} />;
+
       case 'tasks':
         return (
           <TaskList
@@ -79,25 +90,33 @@ function App() {
             onDelete={deleteTask}
           />
         );
+
       case 'account':
         return <Account user={user} />;
+
       default:
-        return null;
+        return <Dashboard tasks={tasks} />;
     }
   };
 
-  /* ──────────── Authenticated layout ─────────── */
+  /* ──────────────────────────────────────────────
+     7. AUTHENTICATED LAYOUT
+  ─────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Header
-  user={user}
-  currentView={currentView}
-  onChangeView={setCurrentView}
-  onSignOut={signOut}
-/>
-      <main>{renderCurrentView()}</main>
+        user={user}
+        currentView={currentView}
+        onChangeView={setCurrentView}
+        onSignOut={signOut}
+      />
+
+      <main className="px-4 sm:px-6 lg:px-8 py-6">{renderCurrentView()}</main>
     </div>
   );
 }
 
+/* ──────────────────────────────────────────────
+   8. DEFAULT EXPORT  ← required by main.tsx
+─────────────────────────────────────────────── */
 export default App;
