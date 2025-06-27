@@ -1,82 +1,127 @@
 // src/components/Auth.tsx
 import React, { useState } from 'react';
 import {
-  Mail, Lock, User, Eye, EyeOff, Shield, ArrowRight,
+  Mail, Lock, User, Eye, EyeOff, ArrowRight, Shield,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-export const Auth: React.FC = () => {
-  const {
-    signUp, confirmSignUp, signIn, resendConfirmationCode,
-    needsConfirm, error, loading,
-  } = useAuth();
+/* ------------------------------------------------------- */
+/* Confirm-Code sub-component                              */
+/* ------------------------------------------------------- */
+interface ConfirmCodeProps {
+  email: string;
+  onBack: () => void;
+}
 
-  /* ------------------------------------------------------------------ */
-  /* local state                                                        */
-  /* ------------------------------------------------------------------ */
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [form, setForm] = useState({
-    email: '', password: '', name: '', confirmPassword: '',
-  });
-  const [showPwd, setShowPwd] = useState(false);
-  const [otp, setOtp] = useState('');
+const ConfirmCode: React.FC<ConfirmCodeProps> = ({ email, onBack }) => {
+  const { confirmSignUp, signIn, resendConfirmationCode, error, loading } = useAuth();
+  const [code, setCode] = useState('');
+  const [pwd, setPwd] = useState('');               // for auto-login
 
-  /** e-mail we still have to verify */
-  const [pendingEmail, setPendingEmail] = useState('');
-
-  /* ------------------------------------------------------------------ */
-  /* handlers                                                           */
-  /* ------------------------------------------------------------------ */
-  const handleChange = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [key]: e.target.value });
-
-  /** main form submit (sign-up or sign-in) */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (isSignUp) {
-      if (form.password !== form.confirmPassword) return;
-      const ok = await signUp(form.email, form.password, form.name);
-      if (ok) setPendingEmail(form.email);                // remember for OTP
-    } else {
-      const ok = await signIn(form.email, form.password);
-
-      /* sign-in failed because user not confirmed → remember e-mail */
-      if (!ok && needsConfirm) setPendingEmail(form.email);
+  const handleVerify = async () => {
+    const ok = await confirmSignUp(email, code);
+    if (ok) {
+      // 🔐 auto-login
+      await signIn(email, pwd);
     }
   };
 
-  /** verify OTP */
-  const handleVerify = async () => {
-    if (!pendingEmail) return;
-    await confirmSignUp(pendingEmail, otp);
+  return (
+    <>
+      <h2 className="text-xl font-semibold mt-4">Verify your e-mail</h2>
+
+      <div className="mt-6 space-y-4">
+        <input
+          className="w-full px-3 py-2 border rounded"
+          placeholder="Verification code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+        />
+        <input
+          type="password"
+          className="w-full px-3 py-2 border rounded"
+          placeholder="Password (for auto-login)"
+          value={pwd}
+          onChange={(e) => setPwd(e.target.value)}
+        />
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <button
+          onClick={handleVerify}
+          disabled={loading || code.length === 0 || pwd.length === 0}
+          className="w-full bg-blue-600 text-white py-2 rounded"
+        >
+          {loading ? 'Verifying…' : 'Verify & sign in'}
+        </button>
+
+        <button
+          onClick={() => resendConfirmationCode(email)}
+          className="text-sm text-blue-600 underline"
+        >
+          Resend code
+        </button>
+
+        <button
+          onClick={onBack}
+          className="text-sm text-gray-500 underline block mt-4"
+        >
+          Back to sign-in
+        </button>
+      </div>
+    </>
+  );
+};
+
+/* ------------------------------------------------------- */
+/* Main Auth component                                     */
+/* ------------------------------------------------------- */
+export const Auth: React.FC = () => {
+  const {
+    signUp, signIn, needsConfirm, error, loading,
+  } = useAuth();
+
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [form, setForm] = useState({
+    email: '', password: '', confirmPassword: '', name: '',
+  });
+  const [showPwd, setShowPwd] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+
+  const handleChange = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [k]: e.target.value });
+
+  /* -------------------------------- sign-up / sign-in submit */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSignUp) {
+      if (form.password !== form.confirmPassword) return;
+      const ok = await signUp(form.email, form.password, form.name);
+      if (ok) setPendingEmail(form.email);
+    } else {
+      await signIn(form.email, form.password);
+    }
   };
 
-  /** resend code */
-  const handleResend = async () => {
-    if (!pendingEmail) return;
-    await resendConfirmationCode(pendingEmail);
-    alert('Verification code sent again.');
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* UI                                                                 */
-  /* ------------------------------------------------------------------ */
+  /* -------------------------------- UI */
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="bg-white shadow-xl rounded-xl w-full max-w-md">
-        <div className="p-8">
-          {/* heading */}
-          <div className="flex items-center space-x-2">
-            <Shield className="w-6 h-6 text-blue-600" />
-            <h1 className="text-2xl font-bold">TaskFlow</h1>
-          </div>
-          <h2 className="text-xl font-semibold mt-4">
-            {needsConfirm ? 'Verify your e-mail' : isSignUp ? 'Create account' : 'Welcome back'}
-          </h2>
+      <div className="bg-white shadow-xl rounded-xl w-full max-w-md p-8">
+        <div className="flex items-center space-x-2 mb-4">
+          <Shield className="w-6 h-6 text-blue-600" />
+          <h1 className="text-2xl font-bold">TaskFlow</h1>
+        </div>
 
-          {/* ============ 1) SIGN-UP / SIGN-IN FORM ============ */}
-          {!needsConfirm && (
+        {/* ---------- confirm code mode ---------- */}
+        {needsConfirm && pendingEmail ? (
+          <ConfirmCode email={pendingEmail} onBack={() => setIsSignUp(false)} />
+        ) : (
+          /* ---------- sign-in / sign-up form ---------- */
+          <>
+            <h2 className="text-xl font-semibold">
+              {isSignUp ? 'Create account' : 'Welcome back'}
+            </h2>
+
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               {isSignUp && (
                 <div className="relative">
@@ -91,7 +136,6 @@ export const Auth: React.FC = () => {
                 </div>
               )}
 
-              {/* email */}
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -104,7 +148,6 @@ export const Auth: React.FC = () => {
                 />
               </div>
 
-              {/* password */}
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -122,7 +165,6 @@ export const Auth: React.FC = () => {
                 )}
               </div>
 
-              {/* confirm pwd */}
               {isSignUp && (
                 <input
                   required
@@ -134,7 +176,6 @@ export const Auth: React.FC = () => {
                 />
               )}
 
-              {/* error */}
               {error && <p className="text-sm text-red-600">{error}</p>}
 
               <button
@@ -149,50 +190,21 @@ export const Auth: React.FC = () => {
                 )}
               </button>
             </form>
-          )}
 
-          {/* ============ 2) OTP VERIFICATION FORM ============ */}
-          {needsConfirm && (
-            <div className="mt-6 space-y-4">
-              <input
-                autoFocus
-                className="w-full px-3 py-2 border rounded"
-                placeholder="Enter verification code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-              />
-              <button
-                onClick={handleVerify}
-                disabled={loading || otp.length === 0}
-                className="w-full bg-blue-600 text-white py-2 rounded"
-              >
-                {loading ? 'Verifying…' : 'Verify & continue'}
-              </button>
-              <button
-                onClick={handleResend}
-                disabled={!pendingEmail || loading}
-                className="text-sm text-blue-600 underline"
-              >
-                Resend code
-              </button>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-            </div>
-          )}
-
-          {/* switch link */}
-          {!needsConfirm && (
+            {/* Switch link */}
             <button
-  className="text-sm text-blue-600 hover:underline"
-  onClick={() => setIsSignUp(!isSignUp)}
->
-  {isSignUp
-    ? 'Already have an account? Sign in'
-    : "Don't have an account? Sign up"}
-</button>
-
-          )}
-        </div>
+              className="mt-6 text-sm text-blue-600 hover:underline"
+              onClick={() => setIsSignUp(!isSignUp)}
+            >
+              {isSignUp
+                ? 'Already have an account? Sign in'
+                : "Don't have an account? Sign up"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 };
+
+export default Auth;

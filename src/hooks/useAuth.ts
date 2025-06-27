@@ -1,12 +1,7 @@
 // src/hooks/useAuth.ts
 import { useState, useEffect, useCallback } from 'react';
 import { Auth } from 'aws-amplify';
-import awsConfig from '../config/aws-config';
 import { User } from '../types';
-
-/* ------------------------------------------------------------------ */
-/* Amplify is configured globally in aws-config.ts                    */
-/* ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -22,11 +17,13 @@ const mapUser = (c: any): User => ({
 const prettyError = (e: any): string => {
   switch (e.code) {
     case 'UserNotConfirmedException':
-      return 'Your account is not verified. Please check your e‑mail for the confirmation code.';
+      return 'Your account is not verified. Please check your email for the confirmation code.';
+    case 'UsernameExistsException':
+      return 'This email is already registered. Please sign in or confirm your account.';
     case 'NotAuthorizedException':
       return 'Incorrect credentials. Please try again.';
     case 'UserNotFoundException':
-      return 'No user found with this e‑mail.';
+      return 'No user found with this email.';
     case 'CodeMismatchException':
       return 'The verification code is invalid.';
     case 'ExpiredCodeException':
@@ -45,7 +42,6 @@ export const useAuth = () => {
   const [error, setError] = useState<string | null>(null);
   const [needsConfirm, setNeedsConfirm] = useState(false);
 
-  /* Fetch current session */
   const refreshUser = useCallback(async () => {
     try {
       const current = await Auth.currentAuthenticatedUser();
@@ -57,15 +53,19 @@ export const useAuth = () => {
     }
   }, []);
 
-  useEffect(() => { refreshUser(); }, [refreshUser]);
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
 
-  /* ------------------------------------------------------------------ */
-  /* Actions                                                            */
-  /* ------------------------------------------------------------------ */
   const signUp = async (email: string, pwd: string, name: string) => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
-      await Auth.signUp({ username: email, password: pwd, attributes: { email, name } });
+      await Auth.signUp({
+        username: email,
+        password: pwd,
+        attributes: { email, name }
+      });
       setNeedsConfirm(true);
       return true;
     } catch (e: any) {
@@ -77,10 +77,12 @@ export const useAuth = () => {
   };
 
   const confirmSignUp = async (email: string, code: string) => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       await Auth.confirmSignUp(email, code);
       setNeedsConfirm(false);
+      await signIn(email); // Auto-login after confirmation
       return true;
     } catch (e: any) {
       setError(prettyError(e));
@@ -90,10 +92,17 @@ export const useAuth = () => {
     }
   };
 
-  const resendConfirmationCode = (email: string) => Auth.resendSignUp(email);
+  const resendConfirmationCode = async (email: string) => {
+    try {
+      await Auth.resendSignUp(email);
+    } catch (e: any) {
+      setError(prettyError(e));
+    }
+  };
 
   const signIn = async (email: string, pwd?: string) => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       await Auth.signIn(email, pwd);
       const current = await Auth.currentAuthenticatedUser();
@@ -109,11 +118,14 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    await Auth.signOut({ global: true });
+    try {
+      await Auth.signOut({ global: true });
+    } catch (e: any) {
+      console.warn('Sign out failed:', e);
+    }
     setUser(null);
   };
 
-  /* ------------------------------------------------------------------ */
   return {
     user,
     loading,
