@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
-import { BookOpen, Mail, Lock, User, Eye, EyeOff, ArrowRight, Shield } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import {
+  BookOpen,
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Shield,
+} from 'lucide-react';
 
 interface AuthProps {
-  onSignIn: (e: string, p: string) => Promise<boolean>;
-  onSignUp: (e: string, p: string, n: string) => Promise<boolean>;
-  needsConfirm: boolean;
-  confirmSignUp: (e: string, code: string) => Promise<boolean>;
-  resendCode: (e: string) => Promise<void>;
-  loading: boolean;
-  error: string | null;
+  onSignIn:      (e: string, p: string)            => Promise<boolean>;
+  onSignUp:      (e: string, p: string, n: string) => Promise<boolean>;
+  needsConfirm:  boolean;
+  confirmSignUp: (e: string, code: string)         => Promise<boolean>;
+  resendCode:    (e: string)                       => Promise<void>;
+  loading:       boolean;
+  error:         string | null;
 }
 
 export const Auth: React.FC<AuthProps> = ({
@@ -21,40 +29,82 @@ export const Auth: React.FC<AuthProps> = ({
   loading,
   error,
 }) => {
+  /* ─── UI state ───────────────────────────────────────────── */
   const [isSignUp, setIsSignUp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: '', password: '', name: '', confirmPassword: '' });
-  const [otp, setOtp] = useState('');
+  const [showPwd,  setShowPwd]  = useState(false);
+  const [otp,      setOtp]      = useState('');
 
-  /* ────────── validation helpers (same as before) ────────── */
+  /* persist email + password for OTP step */
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyPass,  setVerifyPass]  = useState('');
+
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    confirmPassword: '',
+  });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const validateForm = () => {
-    const errs: Record<string, string> = {};
-    if (!formData.email) errs.email = 'Email required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) errs.email = 'Invalid email';
-    if (!formData.password) errs.password = 'Password required';
-    else if (formData.password.length < 6) errs.password = 'Min 6 chars';
+
+  /* ─── validation ─────────────────────────────────────────── */
+  const validate = () => {
+    const e: Record<string, string> = {};
+    const { email, password, name, confirmPassword } = formData;
+
+    if (!email)                 e.email    = 'Email required';
+    else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'Invalid email';
+    if (!password)              e.password = 'Password required';
+    else if (password.length < 6)          e.password = 'Min 6 chars';
+
     if (isSignUp) {
-      if (!formData.name) errs.name = 'Name required';
-      if (formData.password !== formData.confirmPassword) errs.confirmPassword = 'Passwords mismatch';
+      if (!name)                e.name = 'Name required';
+      if (password !== confirmPassword)
+                                e.confirmPassword = 'Passwords mismatch';
     }
-    setFormErrors(errs);
-    return Object.keys(errs).length === 0;
+    setFormErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  /* ────────── submit handlers ────────── */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    if (isSignUp) await onSignUp(formData.email, formData.password, formData.name);
-    else await onSignIn(formData.email, formData.password);
+  /* ─── sign-in / sign-up submit ───────────────────────────── */
+  const handleSubmit = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!validate()) return;
+
+    const { email, password, name } = formData;
+
+    if (isSignUp) {
+      const ok = await onSignUp(email, password, name);
+      if (ok) {
+        setVerifyEmail(email);
+        setVerifyPass(password);
+      }
+    } else {
+      const ok = await onSignIn(email, password);
+      if (ok && needsConfirm) {
+        setVerifyEmail(email);
+        setVerifyPass(password);
+      }
+    }
   };
 
+  /* ─── OTP verify / resend ───────────────────────────────── */
   const handleVerify = async () => {
-    await confirmSignUp(formData.email, otp);
+    const email = verifyEmail || formData.email;
+    if (!email || !otp) return;
+    const ok = await confirmSignUp(email, otp);
+    if (ok) {
+      /* auto-login so user lands in dashboard */
+      await onSignIn(email, verifyPass);
+      setOtp('');
+    }
   };
 
-  /* ────────── UI ────────── */
+  const handleResend = async () => {
+    const email = verifyEmail || formData.email;
+    if (email) await resendCode(email);
+  };
+
+  /* ─── JSX ───────────────────────────────────────────────── */
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
       <div className="max-w-md w-full space-y-6">
@@ -67,19 +117,24 @@ export const Auth: React.FC<AuthProps> = ({
             </h1>
           </div>
           <h2 className="text-xl font-semibold mt-4">
-            {needsConfirm ? 'Verify your email' : isSignUp ? 'Create Account' : 'Welcome Back'}
+            {needsConfirm
+              ? 'Verify your email'
+              : isSignUp
+              ? 'Create Account'
+              : 'Welcome Back'}
           </h2>
         </div>
 
-        {/* Security banner */}
+        {/* AWS banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex space-x-2 text-sm">
           <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
           <span>Authentication powered by AWS Cognito</span>
         </div>
 
-        {/* Form */}
+        {/* Auth / OTP card */}
         <div className="bg-white rounded-xl shadow p-6">
           {!needsConfirm ? (
+            /* ── Sign-in / Sign-up form ────────────────────── */
             <form onSubmit={handleSubmit} className="space-y-5">
               {isSignUp && (
                 <div>
@@ -89,7 +144,9 @@ export const Auth: React.FC<AuthProps> = ({
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                   />
-                  {formErrors.name && <p className="text-xs text-red-600">{formErrors.name}</p>}
+                  {formErrors.name && (
+                    <p className="text-xs text-red-600">{formErrors.name}</p>
+                  )}
                 </div>
               )}
 
@@ -101,27 +158,33 @@ export const Auth: React.FC<AuthProps> = ({
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
-                {formErrors.email && <p className="text-xs text-red-600">{formErrors.email}</p>}
+                {formErrors.email && (
+                  <p className="text-xs text-red-600">{formErrors.email}</p>
+                )}
               </div>
 
               <div>
                 <label className="text-sm">Password</label>
                 <div className="relative">
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPwd ? 'text' : 'password'}
                     className="w-full px-3 py-2 border rounded"
                     value={formData.password}
-                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    onChange={e =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPwd(!showPwd)}
                     className="absolute right-2 top-2 text-gray-500"
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                {formErrors.password && <p className="text-xs text-red-600">{formErrors.password}</p>}
+                {formErrors.password && (
+                  <p className="text-xs text-red-600">{formErrors.password}</p>
+                )}
               </div>
 
               {isSignUp && (
@@ -132,11 +195,16 @@ export const Auth: React.FC<AuthProps> = ({
                     className="w-full px-3 py-2 border rounded"
                     value={formData.confirmPassword}
                     onChange={e =>
-                      setFormData({ ...formData, confirmPassword: e.target.value })
+                      setFormData({
+                        ...formData,
+                        confirmPassword: e.target.value,
+                      })
                     }
                   />
                   {formErrors.confirmPassword && (
-                    <p className="text-xs text-red-600">{formErrors.confirmPassword}</p>
+                    <p className="text-xs text-red-600">
+                      {formErrors.confirmPassword}
+                    </p>
                   )}
                 </div>
               )}
@@ -152,12 +220,14 @@ export const Auth: React.FC<AuthProps> = ({
                   <span className="animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
                 ) : (
                   <>
-                    {isSignUp ? 'Sign Up' : 'Sign In'} <ArrowRight size={16} className="ml-1" />
+                    {isSignUp ? 'Sign Up' : 'Sign In'}
+                    <ArrowRight size={16} className="ml-1" />
                   </>
                 )}
               </button>
             </form>
           ) : (
+            /* ── OTP verification view ────────────────────── */
             <div className="space-y-4">
               <input
                 className="w-full px-3 py-2 border rounded"
@@ -173,17 +243,20 @@ export const Auth: React.FC<AuthProps> = ({
                 Verify OTP
               </button>
               <button
-                onClick={() => resendCode(formData.email)}
+                onClick={handleResend}
                 className="w-full text-sm text-blue-600 underline"
               >
                 Resend Code
               </button>
-              {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+              {error && (
+                <p className="text-sm text-red-600 text-center">{error}</p>
+              )}
             </div>
           )}
 
-          <div className="text-center mt-4">
-            {!needsConfirm && (
+          {/* toggle link */}
+          {!needsConfirm && (
+            <div className="text-center mt-4">
               <button
                 className="text-blue-600 underline text-sm"
                 onClick={() => {
@@ -191,10 +264,12 @@ export const Auth: React.FC<AuthProps> = ({
                   setFormErrors({});
                 }}
               >
-                {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                {isSignUp
+                  ? 'Already have an account? Sign In'
+                  : "Don't have an account? Sign Up"}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
