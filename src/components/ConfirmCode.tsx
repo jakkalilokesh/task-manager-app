@@ -1,54 +1,63 @@
 import React, { useState } from 'react';
 
-interface ConfirmCodeProps {
+interface Props {
   email: string;
-  onConfirm: (code: string) => void;
+  onConfirm: (code: string, password: string) => void;
   onResend: () => void;
+  onBack: () => void;
   error: string | null;
+  loading: boolean;
 }
 
-export const ConfirmCode: React.FC<ConfirmCodeProps> = ({
-  email,
-  onConfirm,
-  onResend,
-  error,
+export const ConfirmCode: React.FC<Props> = ({
+  email, onConfirm, onResend, onBack, error, loading,
 }) => {
   const [code, setCode] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onConfirm(code);
-  };
+  const [pwd, setPwd] = useState('');
 
   return (
-    <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-2">Confirm Your Account</h2>
-      <p className="text-sm text-gray-600 mb-4">
-        A confirmation code was sent to <strong>{email}</strong>. Please enter it below.
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <h2 className="text-xl font-semibold mt-4">Verify your e-mail</h2>
+
+      <div className="mt-6 space-y-4">
         <input
-          type="text"
+          className="w-full px-3 py-2 border rounded"
+          placeholder="Verification code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="Enter confirmation code"
-          className="w-full border border-gray-300 rounded px-4 py-2"
         />
-        {error && <p className="text-red-500">{error}</p>}
+        <input
+          type="password"
+          className="w-full px-3 py-2 border rounded"
+          placeholder="Your password (for sign-in)"
+          value={pwd}
+          onChange={(e) => setPwd(e.target.value)}
+        />
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
         <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+          onClick={() => onConfirm(code, pwd)}
+          disabled={loading || !code || !pwd}
+          className="w-full bg-blue-600 text-white py-2 rounded"
         >
-          Confirm Account
+          {loading ? 'Verifying…' : 'Verify & sign in'}
         </button>
+
         <button
-          type="button"
           onClick={onResend}
-          className="text-blue-500 text-sm hover:underline"
+          className="text-sm text-blue-600 underline"
         >
-          Resend Code
+          Resend code
         </button>
-      </form>
-    </div>
+
+        <button
+          onClick={onBack}
+          className="text-sm text-gray-500 underline block mt-4"
+        >
+          Back to sign-in
+        </button>
+      </div>
+    </>
   );
 };
