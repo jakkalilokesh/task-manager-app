@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { User, Mail, Calendar, Settings, Shield, Bell, Cloud, Database, Activity } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import {
+  User as UserIcon, Shield, Bell, Cloud, Activity, Database
+} from 'lucide-react';
 import { User as UserType } from '../types';
 
 interface AccountProps {
@@ -8,14 +10,16 @@ interface AccountProps {
 
 export const Account: React.FC<AccountProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState('profile');
+
   const [profileData, setProfileData] = useState({
     name: user.name,
-    email: user.email,
-    notifications: {
-      emailReminders: true,
-      pushNotifications: false,
-      weeklyDigest: true
-    }
+    email: user.email
+  });
+
+  const [notifications, setNotifications] = useState({
+    emailReminders: true,
+    pushNotifications: false,
+    weeklyDigest: true
   });
 
   const awsServices = [
@@ -46,24 +50,26 @@ export const Account: React.FC<AccountProps> = ({ user }) => {
       status: 'Active',
       icon: Activity,
       color: 'text-orange-600 bg-orange-100'
-    },
-    {
-      name: 'AWS CloudWatch',
-      description: 'Monitoring and logging',
-      status: 'Active',
-      icon: Activity,
-      color: 'text-indigo-600 bg-indigo-100'
     }
   ];
 
+  const formattedCreatedAt = useMemo(() => new Date(user.created_at).toLocaleDateString(), [user.created_at]);
+  const formattedLastLogin = useMemo(() => user.last_login ? new Date(user.last_login).toLocaleString() : 'Never', [user.last_login]);
+
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically update the user profile via AWS Cognito
-    console.log('Profile updated:', profileData);
+    console.log('Update profile data:', profileData);
+
+    // 🔧 TODO: Use AWS Cognito update call here:
+    // await Auth.updateUserAttributes(...)
+  };
+
+  const toggleNotification = (key: keyof typeof notifications) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const tabs = [
-    { id: 'profile', name: 'Profile', icon: User },
+    { id: 'profile', name: 'Profile', icon: UserIcon },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'aws-services', name: 'AWS Services', icon: Cloud },
     { id: 'security', name: 'Security', icon: Shield }
@@ -73,14 +79,14 @@ export const Account: React.FC<AccountProps> = ({ user }) => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h2>
-        <p className="text-gray-600">Manage your profile and application preferences</p>
+        <p className="text-gray-600">Manage your profile and preferences</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Navigation */}
+        {/* Sidebar */}
         <div className="lg:col-span-1">
           <nav className="space-y-2">
-            {tabs.map((tab) => {
+            {tabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
@@ -100,228 +106,129 @@ export const Account: React.FC<AccountProps> = ({ user }) => {
           </nav>
         </div>
 
-        {/* Content Area */}
+        {/* Main Content */}
         <div className="lg:col-span-3">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+
             {activeTab === 'profile' && (
-              <div>
+              <>
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Profile Information</h3>
-                
                 <div className="flex items-center space-x-6 mb-8">
                   <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <User className="w-10 h-10 text-white" />
+                    <UserIcon className="w-10 h-10 text-white" />
                   </div>
                   <div>
                     <h4 className="text-lg font-medium text-gray-900">{user.name}</h4>
                     <p className="text-gray-500">{user.email}</p>
-                    <p className="text-sm text-gray-400">
-                      Member since {new Date(user.created_at).toLocaleDateString()}
-                    </p>
+                    <p className="text-sm text-gray-400">Member since {formattedCreatedAt}</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleProfileUpdate} className="space-y-6">
                   <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name
-                    </label>
+                    <label htmlFor="name" className="block text-sm font-medium mb-2">Full Name</label>
                     <input
                       type="text"
                       id="name"
                       value={profileData.name}
                       onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address
-                    </label>
+                    <label htmlFor="email" className="block text-sm font-medium mb-2">Email</label>
                     <input
                       type="email"
                       id="email"
                       value={profileData.email}
                       onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-
                   <button
                     type="submit"
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
                     Update Profile
                   </button>
                 </form>
-              </div>
+              </>
             )}
 
             {activeTab === 'notifications' && (
-              <div>
+              <>
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Notification Preferences</h3>
-                
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                {[
+                  { label: 'Email Reminders', key: 'emailReminders' },
+                  { label: 'Push Notifications', key: 'pushNotifications' },
+                  { label: 'Weekly Digest', key: 'weeklyDigest' }
+                ].map(({ label, key }) => (
+                  <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
                     <div>
-                      <h4 className="font-medium text-gray-900">Email Reminders</h4>
-                      <p className="text-sm text-gray-500">Get email notifications for upcoming tasks</p>
+                      <h4 className="font-medium text-gray-900">{label}</h4>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={profileData.notifications.emailReminders}
-                        onChange={(e) => setProfileData(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, emailReminders: e.target.checked }
-                        }))}
+                        checked={notifications[key as keyof typeof notifications]}
+                        onChange={() => toggleNotification(key as keyof typeof notifications)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-checked:bg-blue-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                   </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-gray-900">Push Notifications</h4>
-                      <p className="text-sm text-gray-500">Receive browser push notifications</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={profileData.notifications.pushNotifications}
-                        onChange={(e) => setProfileData(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, pushNotifications: e.target.checked }
-                        }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-gray-900">Weekly Digest</h4>
-                      <p className="text-sm text-gray-500">Weekly summary of your tasks and progress</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={profileData.notifications.weeklyDigest}
-                        onChange={(e) => setProfileData(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, weeklyDigest: e.target.checked }
-                        }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </div>
+                ))}
+              </>
             )}
 
             {activeTab === 'aws-services' && (
-              <div>
+              <>
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">AWS Services Integration</h3>
-                <p className="text-gray-600 mb-8">Your application integrates with the following AWS services for enhanced functionality and scalability.</p>
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {awsServices.map((service) => {
+                  {awsServices.map(service => {
                     const Icon = service.icon;
                     return (
-                      <div key={service.name} className="border border-gray-200 rounded-lg p-6">
-                        <div className="flex items-start space-x-4">
-                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${service.color}`}>
-                            <Icon className="w-6 h-6" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-gray-900">{service.name}</h4>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                service.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {service.status}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600">{service.description}</p>
-                          </div>
+                      <div key={service.name} className="border rounded-lg p-6 flex items-start space-x-4">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${service.color}`}>
+                          <Icon className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{service.name}</h4>
+                          <p className="text-sm text-gray-600">{service.description}</p>
+                          <span className="text-xs mt-1 inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full">
+                            {service.status}
+                          </span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-
-                <div className="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-900 mb-2">AWS Integration Benefits</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Scalable and secure infrastructure</li>
-                    <li>• Real-time data synchronization</li>
-                    <li>• Automated backups and monitoring</li>
-                    <li>• Global content delivery network</li>
-                    <li>• Cost-effective serverless architecture</li>
-                  </ul>
-                </div>
-              </div>
+              </>
             )}
 
             {activeTab === 'security' && (
-              <div>
+              <>
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Security Settings</h3>
-                
                 <div className="space-y-6">
-                  <div className="p-6 border border-gray-200 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-4">Password & Authentication</h4>
-                    <div className="space-y-4">
-                      <button className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                        Change Password
-                      </button>
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div>
-                          <h5 className="font-medium text-gray-900">Two-Factor Authentication</h5>
-                          <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
-                        </div>
-                        <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
-                          Enable 2FA
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6 border border-gray-200 rounded-lg">
+                  <div className="border p-6 rounded-lg">
                     <h4 className="font-semibold text-gray-900 mb-4">Account Activity</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-sm text-gray-600">Last login</span>
-                        <span className="text-sm font-medium text-gray-900">
-                          {user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-sm text-gray-600">Account created</span>
-                        <span className="text-sm font-medium text-gray-900">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
+                    <p className="text-sm text-gray-600">Last login: <span className="text-gray-900 font-medium">{formattedLastLogin}</span></p>
+                    <p className="text-sm text-gray-600">Account created: <span className="text-gray-900 font-medium">{formattedCreatedAt}</span></p>
                   </div>
-
-                  <div className="p-6 border border-red-200 rounded-lg bg-red-50">
-                    <h4 className="font-semibold text-red-900 mb-4">Danger Zone</h4>
-                    <p className="text-sm text-red-700 mb-4">
-                      Once you delete your account, there is no going back. Please be certain.
-                    </p>
-                    <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
-                      Delete Account
-                    </button>
+                  <div className="border p-6 rounded-lg bg-red-50 border-red-200">
+                    <h4 className="font-semibold text-red-900 mb-2">Danger Zone</h4>
+                    <p className="text-sm text-red-700 mb-4">Deleting your account is permanent.</p>
+                    <button className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700">Delete Account</button>
                   </div>
                 </div>
-              </div>
+              </>
             )}
+
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+export default Account;

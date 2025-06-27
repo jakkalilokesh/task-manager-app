@@ -1,12 +1,14 @@
+// src/aws-config.ts
 import { Amplify } from 'aws-amplify';
 
-// AWS Configuration - These values will be populated after CloudFormation deployment
+// You can also rename this to `aws-exports.ts` for standard Amplify compatibility
 const awsConfig = {
   Auth: {
     region: process.env.REACT_APP_AWS_REGION || 'us-east-1',
     userPoolId: process.env.REACT_APP_USER_POOL_ID || '',
     userPoolWebClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID || '',
     identityPoolId: process.env.REACT_APP_IDENTITY_POOL_ID || '',
+    mandatorySignIn: true, // 🔒 secure default
   },
   API: {
     endpoints: [
@@ -25,7 +27,6 @@ const awsConfig = {
   }
 };
 
-// Initialize Amplify with AWS configuration
 Amplify.configure(awsConfig);
 
 export default awsConfig;
