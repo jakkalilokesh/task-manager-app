@@ -10,6 +10,10 @@ import {
   Shield,
 } from 'lucide-react';
 
+const [verifyEmail, setVerifyEmail] = useState('');
+const [verifyPass, setVerifyPass] = useState('');
+
+
 interface AuthProps {
   onSignIn:      (e: string, p: string)            => Promise<boolean>;
   onSignUp:      (e: string, p: string, n: string) => Promise<boolean>;
@@ -66,34 +70,33 @@ export const Auth: React.FC<AuthProps> = ({
   };
 
   /* ─── sign-in / sign-up submit ───────────────────────────── */
-  const handleSubmit = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    if (!validate()) return;
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    const { email, password, name } = formData;
+  const { email, password, name } = formData;
 
-    if (isSignUp) {
-      const ok = await onSignUp(email, password, name);
-      if (ok) {
-        setVerifyEmail(email);
-        setVerifyPass(password);
-      }
-    } else {
-      const ok = await onSignIn(email, password);
-      if (ok && needsConfirm) {
-        setVerifyEmail(email);
-        setVerifyPass(password);
-      }
+  if (isSignUp) {
+    const ok = await onSignUp(email, password, name);
+    if (ok) {
+      setVerifyEmail(email);     // store for OTP
+      setVerifyPass(password);   // store password for auto-login
     }
-  };
+  } else {
+    await onSignIn(email, password);
+  }
+};
+
 
   /* ─── OTP verify / resend ───────────────────────────────── */
-  const handleVerify = async () => {
+const handleVerify = async () => {
   const email = verifyEmail || formData.email;
   if (!email || !otp) return;
-  await confirmSignUp(email, otp, verifyPass);  // pass pwd, no extra sign-in
-  setOtp('');
+
+  const ok = await confirmSignUp(email, otp, verifyPass);  // auto-login inside
+  if (ok) setOtp('');
 };
+
 
 
   const handleResend = async () => {
