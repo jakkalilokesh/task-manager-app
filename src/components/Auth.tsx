@@ -1,215 +1,209 @@
-// src/components/Auth.tsx
 import React, { useState } from 'react';
 import {
-  Mail, Lock, User, Eye, EyeOff, ArrowRight, Shield,
+  Mail, Lock, User, Eye, EyeOff, Shield, ArrowRight,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 
-/* ───────────────── Confirm-Code ───────────────── */
-interface ConfirmCodeProps {
-  email: string;
-  onBack: () => void;
-}
-const ConfirmCode: React.FC<ConfirmCodeProps> = ({ email, onBack }) => {
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Confirm-Code ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const ConfirmCode: React.FC<{ email: string; onBack: () => void }> = ({ email, onBack }) => {
   const { confirmSignUp, resendConfirmationCode, error, loading } = useAuth();
   const [code, setCode] = useState('');
-
-  const handleVerify = async () => {
-    const ok = await confirmSignUp(email, code);
-    if (ok) onBack();                       // go back to sign-in manually
-  };
-
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-center">Verify your email</h2>
+    <>
+      <h2 className="text-xl font-semibold text-center mb-6">Verify Your Email</h2>
 
       <input
-        className="w-full px-3 py-2 border rounded"
-        placeholder="Verification code"
+        placeholder="Confirmation code"
         value={code}
         onChange={(e) => setCode(e.target.value)}
+        className="w-full px-4 py-2 border rounded focus:ring-2 focus:ring-blue-500"
       />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
       <button
-        onClick={handleVerify}
-        disabled={loading || code.length === 0}
-        className="w-full bg-blue-600 text-white py-2 rounded hover:brightness-110 transition"
+        disabled={!code || loading}
+        onClick={() => confirmSignUp(email, code).then(ok => ok && onBack())}
+        className="w-full bg-blue-600 text-white py-2 rounded mt-4 hover:brightness-110 transition"
       >
-        {loading ? 'Verifying…' : 'Verify'}
+        {loading ? (
+          <span className="flex items-center justify-center">
+            <span className="animate-spin border-t-2 border-white border-solid rounded-full h-4 w-4 mr-2" /> Verifying…
+          </span>
+        ) : 'Verify & Continue'}
       </button>
 
       <button
         onClick={() => resendConfirmationCode(email)}
-        className="text-sm text-blue-600 underline block"
+        className="block mt-4 text-sm text-blue-600 underline"
       >
         Resend code
       </button>
 
       <button
         onClick={onBack}
-        className="text-sm text-gray-500 underline block"
+        className="block mt-2 text-sm text-gray-500 underline"
       >
         Back to Sign-in
       </button>
-    </div>
+    </>
   );
 };
 
-/* ───────────────── Auth main ───────────────── */
-export const Auth: React.FC = () => {
-  const {
-    signUp, signIn, needsConfirm, error, loading,
-  } = useAuth();
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Auth Main ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const Auth: React.FC = () => {
+  const { signUp, signIn, needsConfirm, error, loading } = useAuth();
 
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '', confirmPassword: '', name: '' });
+  const [isUp, setIsUp] = useState(false);
+  const [form, setForm] = useState({ email: '', password: '', confirm: '', name: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
 
-  const handleChange = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const change = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSignUp) {
-      if (form.password !== form.confirmPassword) return;
+    if (isUp) {
+      if (form.password !== form.confirm) return;
       const ok = await signUp(form.email, form.password, form.name);
-      if (ok) setPendingEmail(form.email);      // trigger ConfirmCode mode
+      if (ok) setPendingEmail(form.email);
     } else {
       await signIn(form.email, form.password);
     }
   };
 
-  /* helper for Back-to-sign-in */
-  const resetToSignIn = () => {
-    setPendingEmail('');
-    setIsSignUp(false);
-  };
-
-  /* ────────────── UI ────────────── */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 font-inter">
-      <div className="flex shadow-xl bg-white rounded-xl overflow-hidden w-full max-w-4xl">
-        {/* Illustration */}
-        <motion.div
-          className="hidden md:flex w-1/2 items-center justify-center bg-gradient-to-tr from-blue-500 to-purple-500"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          <img
-            src="https://undraw.co/api/illustrations/69fcac43-f64b-4e7e-bf39-417fe97c5bc2"
-            alt="Student planning illustration"
-            className="w-3/4 object-contain"
-          />
-        </motion.div>
+    <div className="min-h-screen w-full flex items-center justify-center
+                    bg-gradient-to-br from-indigo-50 via-white to-purple-50
+                    bg-[length:400%_400%] animate-[bgShift_15s_ease_infinite]">
 
-        {/* Form Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full md:w-1/2 p-8"
-        >
-          <div className="flex items-center space-x-2 mb-4">
-            <Shield className="w-6 h-6 text-blue-600" />
-            <h1 className="text-2xl font-bold">TaskFlow</h1>
-          </div>
+      {/* animated background keyframes (tailwind custom) */}
+      <style>{`
+        @keyframes bgShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
 
-          {/* Confirm-code view */}
-          {needsConfirm && pendingEmail ? (
-            <ConfirmCode email={pendingEmail} onBack={resetToSignIn} />
-          ) : (
-            <>
-              <h2 className="text-xl font-semibold mb-1">
-                {isSignUp ? 'Create your account' : 'Welcome back'}
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                {isSignUp ? 'Manage tasks like a pro student!' : 'Sign in to manage your tasks.'}
-              </p>
+      {/* CARD */}
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="w-[95%] sm:w-[380px] bg-white/70 backdrop-blur
+                   border border-white/30 shadow-2xl rounded-2xl p-8"
+      >
+        {/* logo / icon */}
+        <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-full
+                        bg-gradient-to-tr from-blue-500 to-purple-600 mb-6 shadow">
+          <Shield size={22} className="text-white" />
+        </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {isSignUp && (
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      required
-                      placeholder="Full name"
-                      className="w-full pl-10 pr-3 py-2 border rounded"
-                      value={form.name}
-                      onChange={handleChange('name')}
-                    />
-                  </div>
-                )}
+        {/* confirm-code view */}
+        {needsConfirm && pendingEmail ? (
+          <ConfirmCode email={pendingEmail} onBack={() => { setPendingEmail(''); setIsUp(false); }} />
+        ) : (
+          <>
+            <h2 className="text-center text-2xl font-semibold mb-6">
+              {isUp ? 'Create Account' : 'Welcome Back'}
+            </h2>
 
+            {error && <div className="mb-4 px-3 py-2 bg-red-50 text-red-700 rounded">{error}</div>}
+
+            <form onSubmit={submit} className="space-y-4">
+              {isUp && (
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
                     required
-                    type="email"
-                    placeholder="you@example.com"
-                    className="w-full pl-10 pr-3 py-2 border rounded"
-                    value={form.email}
-                    onChange={handleChange('email')}
+                    placeholder="Full name"
+                    value={form.name}
+                    onChange={change('name')}
+                    className="w-full pl-10 pr-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              )}
 
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    required
-                    type={showPwd ? 'text' : 'password'}
-                    placeholder="Password"
-                    className="w-full pl-10 pr-10 py-2 border rounded"
-                    value={form.password}
-                    onChange={handleChange('password')}
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  required
+                  type="email"
+                  placeholder="Email"
+                  value={form.email}
+                  onChange={change('email')}
+                  className="w-full pl-10 pr-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  required
+                  type={showPwd ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={form.password}
+                  onChange={change('password')}
+                  className="w-full pl-10 pr-10 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                />
+                {showPwd ? (
+                  <EyeOff
+                    onClick={() => setShowPwd(false)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer" size={16}
                   />
-                  {showPwd ? (
-                    <EyeOff onClick={() => setShowPwd(false)} className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 cursor-pointer text-gray-400" />
-                  ) : (
-                    <Eye onClick={() => setShowPwd(true)} className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 cursor-pointer text-gray-400" />
-                  )}
-                </div>
-
-                {isSignUp && (
-                  <input
-                    required
-                    type="password"
-                    placeholder="Confirm password"
-                    className="w-full px-3 py-2 border rounded"
-                    value={form.confirmPassword}
-                    onChange={handleChange('confirmPassword')}
+                ) : (
+                  <Eye
+                    onClick={() => setShowPwd(true)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer" size={16}
                   />
                 )}
+              </div>
 
-                {error && <p className="text-sm text-red-600">{error}</p>}
+              {isUp && (
+                <input
+                  required
+                  type="password"
+                  placeholder="Confirm password"
+                  value={form.confirm}
+                  onChange={change('confirm')}
+                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                />
+              )}
 
-                <button
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white py-2 rounded flex items-center justify-center transition hover:brightness-110"
-                >
-                  {loading ? 'Please wait…' : (
-                    <>
-                      {isSignUp ? 'Create account' : 'Sign in'}
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </button>
-              </form>
-
+              {/* submit */}
               <button
-                className="mt-6 text-sm text-blue-600 hover:underline"
-                onClick={() => setIsSignUp(!isSignUp)}
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-2 rounded hover:brightness-110 transition flex justify-center"
               >
-                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+                {loading ? (
+                  <span className="flex items-center">
+                    <span className="animate-spin border-t-2 border-white border-solid rounded-full h-4 w-4 mr-2" />
+                    Please wait…
+                  </span>
+                ) : (
+                  <>
+                    {isUp ? 'Create account' : 'Sign in'}
+                    <ArrowRight className="ml-2" size={16} />
+                  </>
+                )}
               </button>
-            </>
-          )}
-        </motion.div>
-      </div>
+            </form>
+
+            {/* switch */}
+            <div className="text-center mt-6">
+              <button
+                onClick={() => setIsUp(!isUp)}
+                className="text-sm text-blue-600 hover:underline transition"
+              >
+                {isUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
     </div>
   );
 };
