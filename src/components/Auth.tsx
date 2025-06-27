@@ -89,15 +89,12 @@ export const Auth: React.FC<AuthProps> = ({
 
   /* ─── OTP verify / resend ───────────────────────────────── */
   const handleVerify = async () => {
-    const email = verifyEmail || formData.email;
-    if (!email || !otp) return;
-    const ok = await confirmSignUp(email, otp);
-    if (ok) {
-      /* auto-login so user lands in dashboard */
-      await onSignIn(email, verifyPass);
-      setOtp('');
-    }
-  };
+  const email = verifyEmail || formData.email;
+  if (!email || !otp) return;
+  await confirmSignUp(email, otp, verifyPass);  // pass pwd, no extra sign-in
+  setOtp('');
+};
+
 
   const handleResend = async () => {
     const email = verifyEmail || formData.email;
