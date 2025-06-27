@@ -192,3 +192,5 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks }) => {
     </div>
   );
 };
+
+export default Dashboard;

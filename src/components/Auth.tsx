@@ -1,274 +1,168 @@
+// src/components/Auth.tsx
 import React, { useState } from 'react';
 import {
-  BookOpen,
-  Mail,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  Shield,
+  Mail, Lock, User, Eye, EyeOff, Shield, ArrowRight,
 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
-const [verifyEmail, setVerifyEmail] = useState('');
-const [verifyPass, setVerifyPass] = useState('');
+export const Auth: React.FC = () => {
+  const {
+    signUp, confirmSignUp, signIn, resendConfirmationCode,
+    needsConfirm, error, loading,
+  } = useAuth();
 
-
-interface AuthProps {
-  onSignIn:      (e: string, p: string)            => Promise<boolean>;
-  onSignUp:      (e: string, p: string, n: string) => Promise<boolean>;
-  needsConfirm:  boolean;
-  confirmSignUp: (e: string, code: string)         => Promise<boolean>;
-  resendCode:    (e: string)                       => Promise<void>;
-  loading:       boolean;
-  error:         string | null;
-}
-
-export const Auth: React.FC<AuthProps> = ({
-  onSignIn,
-  onSignUp,
-  needsConfirm,
-  confirmSignUp,
-  resendCode,
-  loading,
-  error,
-}) => {
-  /* ─── UI state ───────────────────────────────────────────── */
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [showPwd,  setShowPwd]  = useState(false);
-  const [otp,      setOtp]      = useState('');
-
-  /* persist email + password for OTP step */
-  const [verifyEmail, setVerifyEmail] = useState('');
-  const [verifyPass,  setVerifyPass]  = useState('');
-
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    confirmPassword: '',
+  /* local ui state ----------------------------------------------------- */
+  const [isSignUp, setIsSignUp]   = useState(false);
+  const [otp,      setOtp]        = useState('');
+  const [form,     setForm]       = useState({
+    email: '', password: '', name: '', confirmPassword: '',
   });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [showPwd,  setShowPwd]    = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
-  /* ─── validation ─────────────────────────────────────────── */
-  const validate = () => {
-    const e: Record<string, string> = {};
-    const { email, password, name, confirmPassword } = formData;
+  /* handlers ----------------------------------------------------------- */
+  const handleChange = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [k]: e.target.value });
 
-    if (!email)                 e.email    = 'Email required';
-    else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'Invalid email';
-    if (!password)              e.password = 'Password required';
-    else if (password.length < 6)          e.password = 'Min 6 chars';
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (isSignUp) {
-      if (!name)                e.name = 'Name required';
-      if (password !== confirmPassword)
-                                e.confirmPassword = 'Passwords mismatch';
+      if (form.password !== form.confirmPassword) return;
+      const ok = await signUp(form.email, form.password, form.name);
+      if (ok) setSubmittedEmail(form.email);
+    } else {
+      await signIn(form.email, form.password);
     }
-    setFormErrors(e);
-    return Object.keys(e).length === 0;
   };
 
-  /* ─── sign-in / sign-up submit ───────────────────────────── */
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
-
-  const { email, password, name } = formData;
-
-  if (isSignUp) {
-    const ok = await onSignUp(email, password, name);
-    if (ok) {
-      setVerifyEmail(email);     // store for OTP
-      setVerifyPass(password);   // store password for auto-login
-    }
-  } else {
-    await onSignIn(email, password);
-  }
-};
-
-
-  /* ─── OTP verify / resend ───────────────────────────────── */
-const handleVerify = async () => {
-  const email = verifyEmail || formData.email;
-  if (!email || !otp) return;
-
-  const ok = await confirmSignUp(email, otp, verifyPass);  // auto-login inside
-  if (ok) setOtp('');
-};
-
-
-
-  const handleResend = async () => {
-    const email = verifyEmail || formData.email;
-    if (email) await resendCode(email);
+  const handleVerify = async () => {
+    const ok = await confirmSignUp(submittedEmail, otp);
+    if (!ok) return;
+    /* after successful confirm user will be asked to sign-in */
   };
 
-  /* ─── JSX ───────────────────────────────────────────────── */
+  /* ui --------------------------------------------------------------- */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <div className="max-w-md w-full space-y-6">
-        {/* Header */}
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <BookOpen className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              TaskFlow
-            </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="bg-white shadow-xl rounded-xl w-full max-w-md">
+        <div className="p-8">
+          {/* heading */}
+          <div className="flex items-center space-x-2">
+            <Shield className="w-6 h-6 text-blue-600" />
+            <h1 className="text-2xl font-bold">TaskFlow</h1>
           </div>
           <h2 className="text-xl font-semibold mt-4">
-            {needsConfirm
-              ? 'Verify your email'
-              : isSignUp
-              ? 'Create Account'
-              : 'Welcome Back'}
+            {needsConfirm ? 'Verify your e-mail' : isSignUp ? 'Create account' : 'Welcome back'}
           </h2>
-        </div>
 
-        {/* AWS banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex space-x-2 text-sm">
-          <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
-          <span>Authentication powered by AWS Cognito</span>
-        </div>
-
-        {/* Auth / OTP card */}
-        <div className="bg-white rounded-xl shadow p-6">
+          {/* main form OR OTP form */}
           {!needsConfirm ? (
-            /* ── Sign-in / Sign-up form ────────────────────── */
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              {/* name – sign-up only */}
               {isSignUp && (
-                <div>
-                  <label className="text-sm">Name</label>
-                  <input
-                    className="w-full px-3 py-2 border rounded"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  />
-                  {formErrors.name && (
-                    <p className="text-xs text-red-600">{formErrors.name}</p>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label className="text-sm">Email</label>
-                <input
-                  type="email"
-                  className="w-full px-3 py-2 border rounded"
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                />
-                {formErrors.email && (
-                  <p className="text-xs text-red-600">{formErrors.email}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-sm">Password</label>
                 <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
-                    type={showPwd ? 'text' : 'password'}
-                    className="w-full px-3 py-2 border rounded"
-                    value={formData.password}
-                    onChange={e =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
+                    required
+                    placeholder="Full name"
+                    className="w-full pl-10 pr-3 py-2 border rounded"
+                    value={form.name}
+                    onChange={handleChange('name')}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwd(!showPwd)}
-                    className="absolute right-2 top-2 text-gray-500"
-                  >
-                    {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {formErrors.password && (
-                  <p className="text-xs text-red-600">{formErrors.password}</p>
-                )}
-              </div>
-
-              {isSignUp && (
-                <div>
-                  <label className="text-sm">Confirm Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-3 py-2 border rounded"
-                    value={formData.confirmPassword}
-                    onChange={e =>
-                      setFormData({
-                        ...formData,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                  />
-                  {formErrors.confirmPassword && (
-                    <p className="text-xs text-red-600">
-                      {formErrors.confirmPassword}
-                    </p>
-                  )}
                 </div>
               )}
 
+              {/* e-mail */}
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  required
+                  type="email"
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-3 py-2 border rounded"
+                  value={form.email}
+                  onChange={handleChange('email')}
+                />
+              </div>
+
+              {/* password */}
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  required
+                  type={showPwd ? 'text' : 'password'}
+                  placeholder="Password"
+                  className="w-full pl-10 pr-10 py-2 border rounded"
+                  value={form.password}
+                  onChange={handleChange('password')}
+                />
+                {showPwd ? (
+                  <EyeOff onClick={() => setShowPwd(false)} className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 cursor-pointer text-gray-400" />
+                ) : (
+                  <Eye onClick={() => setShowPwd(true)} className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 cursor-pointer text-gray-400" />
+                )}
+              </div>
+
+              {/* confirm pwd – sign-up only */}
+              {isSignUp && (
+                <input
+                  required
+                  type="password"
+                  placeholder="Confirm password"
+                  className="w-full px-3 py-2 border rounded"
+                  value={form.confirmPassword}
+                  onChange={handleChange('confirmPassword')}
+                />
+              )}
+
+              {/* error */}
               {error && <p className="text-sm text-red-600">{error}</p>}
 
               <button
-                type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                className="w-full bg-blue-600 text-white py-2 rounded flex items-center justify-center"
               >
-                {loading ? (
-                  <span className="animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
-                ) : (
+                {loading ? 'Please wait…' : (
                   <>
-                    {isSignUp ? 'Sign Up' : 'Sign In'}
-                    <ArrowRight size={16} className="ml-1" />
+                    {isSignUp ? 'Create account' : 'Sign in'}
+                    <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 )}
               </button>
             </form>
           ) : (
-            /* ── OTP verification view ────────────────────── */
-            <div className="space-y-4">
+            /* OTP verification */
+            <div className="mt-6 space-y-4">
               <input
+                autoFocus
                 className="w-full px-3 py-2 border rounded"
                 placeholder="Enter OTP"
                 value={otp}
-                onChange={e => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value)}
               />
               <button
                 onClick={handleVerify}
-                disabled={loading}
-                className="w-full bg-green-600 text-white py-2 rounded"
+                className="w-full bg-blue-600 text-white py-2 rounded"
               >
-                Verify OTP
+                Verify &amp; continue
               </button>
               <button
-                onClick={handleResend}
-                className="w-full text-sm text-blue-600 underline"
+                onClick={() => resendConfirmationCode(submittedEmail)}
+                className="text-sm text-blue-600 underline"
               >
-                Resend Code
+                Resend code
               </button>
-              {error && (
-                <p className="text-sm text-red-600 text-center">{error}</p>
-              )}
             </div>
           )}
 
-          {/* toggle link */}
+          {/* switch mode */}
           {!needsConfirm && (
-            <div className="text-center mt-4">
-              <button
-                className="text-blue-600 underline text-sm"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setFormErrors({});
-                }}
-              >
-                {isSignUp
-                  ? 'Already have an account? Sign In'
-                  : "Don't have an account? Sign Up"}
-              </button>
-            </div>
+            <button
+              className="mt-6 text-sm text-gray-600 hover:underline"
+              onClick={() => setIsSignUp(!isSignUp)}
+            >
+              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </button>
           )}
         </div>
       </div>

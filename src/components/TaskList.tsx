@@ -10,8 +10,8 @@ interface TaskListProps {
   tasks: Task[];
   loading: boolean;
   error?: string | null;
-  onCreate: (task: Task) => void;     // ✔ simplified
-  onUpdate: (task: Task) => void;     // ✔ simplified
+  onCreate: (task: Task) => void;
+  onUpdate: (task: Task) => void;
   onDelete: (taskId: string) => void;
 }
 
@@ -48,7 +48,7 @@ export const TaskList: React.FC<TaskListProps> = ({
 
   /* status change */
   const handleStatusChange = (task: Task, status: Task['status']) => {
-    onUpdate({ ...task, status });           // ✔ call with full Task
+    onUpdate({ ...task, status });
   };
 
   /* open form in edit mode */
@@ -62,9 +62,9 @@ export const TaskList: React.FC<TaskListProps> = ({
     taskData: Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at'>
   ) => {
     if (editingTask) {
-      onUpdate({ ...editingTask, ...taskData });     // ✔ pass Task
+      onUpdate({ ...editingTask, ...taskData });
     } else {
-      onCreate(taskData as unknown as Task);         // cast keeps UI unchanged
+      onCreate(taskData as unknown as Task);
     }
     setShowTaskForm(false);
     setEditingTask(null);
@@ -75,7 +75,7 @@ export const TaskList: React.FC<TaskListProps> = ({
     setEditingTask(null);
   };
 
-  /* color helpers (unchanged) */
+  /* color helpers */
   const getPriorityColor = (p: string) => {
     switch (p) {
       case 'high':   return 'bg-red-100 text-red-800 border-red-200';
@@ -105,12 +105,12 @@ export const TaskList: React.FC<TaskListProps> = ({
     );
   }
 
-  /* --------------- UI below is untouched --------------- */
+  /* --------------- UI --------------- */
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* ... entire existing JSX markup stays exactly the same ... */}
-      {/* (no functional changes below this point) */}
-      {/* Filters, Task cards, etc. */}
+      {/* TODO: Paste your existing Filters + Task cards JSX here */}
     </div>
   );
 };
+
+export default TaskList;
